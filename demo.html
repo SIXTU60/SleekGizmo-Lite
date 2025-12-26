@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sleek Gizmo LITE (Free Version)</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #111; color: white; font-family: sans-serif; }
+        #toolbar {
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 10px; background: rgba(50,50,50,0.8); padding: 10px; border-radius: 20px;
+        }
+        button {
+            background: transparent; border: 1px solid #555; color: #aaa; padding: 10px 15px;
+            border-radius: 8px; cursor: pointer;
+        }
+        button.active { background: #4488ff; color: white; border-color: #4488ff; }
+        
+        /* Disable buttons not available in Lite */
+        button.disabled { opacity: 0.3; cursor: not-allowed; position: relative; }
+        button.disabled::after { 
+            content: "PRO"; position: absolute; top: -5px; right: -5px; 
+            background: #ffaa00; color: black; font-size: 8px; padding: 2px 4px; border-radius: 4px; 
+        }
+        
+        #upgrade-notice {
+            position: absolute; top: 20px; right: 20px;
+            background: rgba(40,40,40,0.9); border: 1px solid #4488ff;
+            padding: 15px; border-radius: 8px; font-size: 14px; max-width: 250px;
+        }
+        #upgrade-notice a { color: #4488ff; font-weight: bold; }
+    </style>
+</head>
+<body>
+    
+    <div id="upgrade-notice">
+        <strong>SleekGizmo LITE</strong><br>
+        <span style="font-size:12px; color:#aaa;">Move (Translate) Only.</span><br><br>
+        Need Rotation & Scale?<br>
+        <a href="#">Get the PRO Version</a>
+    </div>
+
+    <div id="toolbar">
+        <button class="active">Move</button>
+        <button class="disabled" title="Available in Pro">Rotate</button>
+        <button class="disabled" title="Available in Pro">Scale</button>
+    </div>
+
+    <script type="importmap">
+        { "imports": { "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js" } }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/controls/OrbitControls.js';
+        import { SleekGizmoLite } from './src/SleekGizmoLite.js';
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 100);
+        camera.position.set(5, 5, 7);
+        const renderer = new THREE.WebGLRenderer({antialias:true});
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+        
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        
+        scene.add(new THREE.GridHelper(10, 10, 0x444444, 0x222222));
+        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+        scene.add(new THREE.DirectionalLight(0xffffff, 1));
+
+        const cube = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial({color:0x4488ff}));
+        cube.position.y = 0.5;
+        scene.add(cube);
+
+        // --- INIT LITE GIZMO ---
+        const gizmo = new SleekGizmoLite(scene, camera, renderer);
+        gizmo.attach(cube);
+        
+        gizmo.on('dragStart', () => controls.enabled = false);
+        gizmo.on('dragEnd', () => controls.enabled = true);
+
+        // Click to Select Logic
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        
+        renderer.domElement.addEventListener('pointerdown', (e) => {
+            if(gizmo.isDragging) return; 
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+
+            const gizmoHits = raycaster.intersectObjects(gizmo.gizmoGroup.children, true);
+            if(gizmoHits.length > 0) return; 
+
+            const hits = raycaster.intersectObject(cube);
+            if(hits.length > 0) gizmo.attach(hits[0].object);
+            else gizmo.detach();
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            gizmo.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+        
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
+
+
